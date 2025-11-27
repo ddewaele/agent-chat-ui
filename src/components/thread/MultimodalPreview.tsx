@@ -2,7 +2,6 @@ import React from "react";
 import { File, X as XIcon } from "lucide-react";
 import { ContentBlock } from "@langchain/core/messages";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 export interface MultimodalPreviewProps {
   block: ContentBlock.Multimodal.Data;
   removable?: boolean;
@@ -30,7 +29,7 @@ export const MultimodalPreview: React.FC<MultimodalPreviewProps> = ({
     if (size === "lg") imgClass = "rounded-md object-cover h-24 w-24 text-xl";
     return (
       <div className={cn("relative inline-block", className)}>
-        <Image
+        <img
           src={url}
           alt={String(block.metadata?.name || "uploaded image")}
           className={imgClass}
