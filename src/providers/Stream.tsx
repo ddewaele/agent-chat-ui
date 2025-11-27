@@ -9,6 +9,8 @@ import { useStream } from "@langchain/langgraph-sdk/react";
 import { type Message } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
+  isUIMessage,
+  isRemoveUIMessage,
   type UIMessage,
   type RemoveUIMessage,
 } from "@langchain/langgraph-sdk/react-ui";
@@ -31,6 +33,7 @@ const useTypedStream = useStream<
     UpdateType: {
       messages?: Message[] | Message | string;
       ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
+      context?: Record<string, unknown>;
     };
     CustomEventType: UIMessage | RemoveUIMessage;
   }
@@ -81,11 +84,14 @@ const StreamSession = ({
     apiKey: apiKey ?? undefined,
     assistantId,
     threadId: threadId ?? null,
+    fetchStateHistory: true,
     onCustomEvent: (event, options) => {
-      options.mutate((prev) => {
-        const ui = uiMessageReducer(prev.ui ?? [], event);
-        return { ...prev, ui };
-      });
+      if (isUIMessage(event) || isRemoveUIMessage(event)) {
+        options.mutate((prev) => {
+          const ui = uiMessageReducer(prev.ui ?? [], event);
+          return { ...prev, ui };
+        });
+      }
     },
     onThreadId: (id) => {
       setThreadId(id);
@@ -128,9 +134,9 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   // Get environment variables
-  const envApiUrl: string | undefined = import.meta.env.VITE_API_URL;
-  const envAssistantId: string | undefined = import.meta.env.VITE_ASSISTANT_ID;
-  const envApiKey: string | undefined = import.meta.env.VITE_LANGSMITH_API_KEY;
+  const envApiUrl: string | undefined = process.env.NEXT_PUBLIC_API_URL;
+  const envAssistantId: string | undefined =
+    process.env.NEXT_PUBLIC_ASSISTANT_ID;
 
   // Use URL params with env var fallbacks
   const [apiUrl, setApiUrl] = useQueryState("apiUrl", {
@@ -143,7 +149,7 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   // For API key, use localStorage with env var fallback
   const [apiKey, _setApiKey] = useState(() => {
     const storedKey = getApiKey();
-    return storedKey || envApiKey || "";
+    return storedKey || "";
   });
 
   const setApiKey = (key: string) => {
@@ -155,13 +161,13 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   const finalApiUrl = apiUrl || envApiUrl;
   const finalAssistantId = assistantId || envAssistantId;
 
-  // If we're missing any required values, show the form
+  // Show the form if we: don't have an API URL, or don't have an assistant ID
   if (!finalApiUrl || !finalAssistantId) {
     return (
-      <div className="flex items-center justify-center min-h-screen w-full p-4">
-        <div className="animate-in fade-in-0 zoom-in-95 flex flex-col border bg-background shadow-lg rounded-lg max-w-3xl">
-          <div className="flex flex-col gap-2 mt-14 p-6 border-b">
-            <div className="flex items-start flex-col gap-2">
+      <div className="flex min-h-screen w-full items-center justify-center p-4">
+        <div className="animate-in fade-in-0 zoom-in-95 bg-background flex max-w-3xl flex-col rounded-lg border shadow-lg">
+          <div className="mt-14 flex flex-col gap-2 border-b p-6">
+            <div className="flex flex-col items-start gap-2">
               <LangGraphLogoSVG className="h-7" />
               <h1 className="text-xl font-semibold tracking-tight">
                 Agent Chat
@@ -188,7 +194,7 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
 
               form.reset();
             }}
-            className="flex flex-col gap-6 p-6 bg-muted/50"
+            className="bg-muted/50 flex flex-col gap-6 p-6"
           >
             <div className="flex flex-col gap-2">
               <Label htmlFor="apiUrl">
@@ -242,8 +248,11 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
               />
             </div>
 
-            <div className="flex justify-end mt-2">
-              <Button type="submit" size="lg">
+            <div className="mt-2 flex justify-end">
+              <Button
+                type="submit"
+                size="lg"
+              >
                 Continue
                 <ArrowRight className="size-5" />
               </Button>
@@ -255,7 +264,11 @@ export const StreamProvider: React.FC<{ children: ReactNode }> = ({
   }
 
   return (
-    <StreamSession apiKey={apiKey} apiUrl={apiUrl} assistantId={assistantId}>
+    <StreamSession
+      apiKey={apiKey}
+      apiUrl={apiUrl}
+      assistantId={assistantId}
+    >
       {children}
     </StreamSession>
   );
